@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+    <br/>
+
+    {% for message in get_flashed_messages() %}
+
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+
+    {% if name %}
+        <h1>Hello {{ name }}!!!!</h1>
+        <br/>
+        <img src="{{ url_for('static', filename='images/1.jpg') }}" width="100px">
+    {% else %}
+        <h1>Update record</h1>
+        <br/>
+        <div class="shadow p-3 mb-3 bg-body-tertiary rounded">
+        <form action="/update_record/{{ name_to_update.id }}" method="post">
+            {{ form.hidden_tag() }}
+            {{ form.name.label(class="form-label")}}
+            {{ form.name(class="form-control", value=name_to_update.name) }}
+
+            {{ form.email.label(class="form-label") }}
+            {{ form.email(class="form-control", value=name_to_update.email) }}
+
+            {{ form.favorite_color.label(class="form-label")}}
+            {{ form.favorite_color(class="form-control", value=name_to_update.favorite_color) }}
+            <br/>
+            {{ form.submit(class="btn btn-primary") }}
+            <a href="{{ url_for('delete_record', id=name_to_update.id) }}" class="btn btn-danger">Delete</a>
+        </form>
+        </div>
+    {% endif %}
+
+{#    <br/><br/>#}
+{#    <table class="table table-hover table-striped">#}
+{#    {% for our_user in our_users %}#}
+{#        <tr>#}
+{#            <td><a href="{{ url_for('update_record') }}">#}
+{#            {{ our_user.id }} - {{ our_user.name }} - {{ our_user.email }} - {{ our_user.favorite_color }}#}
+{#            </a></td>#}
+{#        </tr>#}
+{#    {% endfor %}#}
+{#    </table>#}
+
+{% endblock %}

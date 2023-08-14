@@ -19,7 +19,7 @@
     {% else %}
         <h1>What's your Name</h1>
         <br/>
-        <div class="shadow p-3 mb-3 bg-body-tertiary rounded">Larger shadow
+        <div class="shadow p-3 mb-3 bg-body-tertiary rounded">
         <form method="post">
             {{ form.hidden_tag() }}
             {{ form.name.label(class="form-label") }}
@@ -27,6 +27,9 @@
 
             {{ form.email.label(class="form-label") }}
             {{ form.email(class="form-control") }}
+
+            {{ form.favorite_color.label(class="form-label")}}
+            {{ form.favorite_color(class="form-control") }}
             <br/>
             {{ form.submit(class="btn btn-primary") }}
         </form>
@@ -37,9 +40,10 @@
     <table class="table table-hover table-striped">
     {% for our_user in our_users %}
         <tr>
-            <td>
-            {{ our_user.id }} - {{ our_user.name }} - {{ our_user.email }}
-            </td>
+            <td><a href="{{ url_for('update_record', id=our_user.id) }}">
+            {{ our_user.id }} - {{ our_user.name }} - {{ our_user.email }} - {{ our_user.favorite_color }}
+                <a href="{{ url_for('delete_record', id=our_user.id) }}">[delete]</a>
+            </a></td>
         </tr>
     {% endfor %}
     </table>
