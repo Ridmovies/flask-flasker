@@ -13,28 +13,23 @@
         </li>
 
           <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('name') }}">
-              Name
+          <a class="nav-link" href="{{ url_for('dashboard') }}">
+              dashboard
           </a>
         </li>
 
-          <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('add_user') }}">
-              Add user
-          </a>
-        </li>
 
-          <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('test_pw') }}">
-              Test_pw
-          </a>
-        </li>
+{#          <li class="nav-item">#}
+{#          <a class="nav-link" href="{{ url_for('test_pw') }}">#}
+{#              Test_pw#}
+{#          </a>#}
+{#        </li>#}
 
-          <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('get_current_date') }}">
-              JSON
-          </a>
-        </li>
+{#          <li class="nav-item">#}
+{#          <a class="nav-link" href="{{ url_for('get_current_date') }}">#}
+{#              JSON#}
+{#          </a>#}
+{#        </li>#}
 
           <li class="nav-item">
           <a class="nav-link" href="{{ url_for('add_post') }}">
@@ -47,6 +42,30 @@
               Blog Posts
           </a>
           </li>
+
+          {% if not current_user.is_authenticated %}
+              <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('login') }}">
+                  Login
+              </a>
+              </li>
+
+              <li class="nav-item">
+                  <a class="nav-link" href="{{ url_for('add_user') }}">
+                      Register
+                  </a>
+                </li>
+
+          {% else %}
+
+              <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('logout') }}">
+                  Logout
+              </a>
+              </li>
+
+          {% endif %}
+
 
 
       </ul>

@@ -1,5 +1,6 @@
 from flask import Flask, render_template, flash, request, redirect, url_for
 from flask_wtf import FlaskForm
+from sqlalchemy import MetaData
 from wtforms import StringField, SubmitField, PasswordField, BooleanField, ValidationError
 from wtforms.validators import DataRequired, EqualTo, Length
 from flask_sqlalchemy import SQLAlchemy
@@ -8,18 +9,38 @@ from datetime import datetime
 from datetime import date
 from werkzeug.security import generate_password_hash, check_password_hash
 from wtforms.widgets import TextArea
+from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
 app.config['SECRET_KEY'] = "my super secret key that no one is supposed to know"
 
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
+# db = SQLAlchemy(app)
+# migrate = Migrate(app, db, render_as_batch=True)
+
+convention = {
+    "ix": 'ix_%(column_0_label)s',
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s"
+}
+
+metadata = MetaData(naming_convention=convention)
+db = SQLAlchemy(app, metadata=metadata)
+migrate = Migrate(app, db, render_as_batch=True)
+
+
+# Flask_Login Stuff
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
 
 
 # MODELS
-class Users(db.Model):
+class Users(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(128), nullable=False, unique=True)
     name = db.Column(db.String(200), nullable=False)
     password_hash = db.Column(db.String(128))
     email = db.Column(db.String(200), nullable=False, unique=True)
@@ -53,6 +74,7 @@ class Posts(db.Model):
 # FORMS
 class UserForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired()])
+    username = StringField("Username", validators=[DataRequired()])
     email = StringField("Email", validators=[DataRequired()])
     password_hash = PasswordField('Password',
                                   validators=[DataRequired(),
@@ -80,6 +102,11 @@ class PostForm(FlaskForm):
     slug = StringField("slug", validators=[DataRequired()])
     submit = SubmitField("Submit")
 
+
+class LoginForm(FlaskForm):
+    username = StringField("username", validators=[DataRequired()])
+    password_hash = PasswordField("password", validators=[DataRequired()])
+    submit = SubmitField("Login")
 
 @app.route('/')
 def index():
@@ -141,7 +168,8 @@ def add_user():
         user = Users.query.filter_by(email=form.email.data).first()
         if user is None:
             hashed_password = generate_password_hash(form.password_hash.data, 'sha256')
-            user = Users(name=form.name.data,
+            user = Users(username=form.username.data,
+                         name=form.name.data,
                          email=form.email.data,
                          favorite_color=form.favorite_color.data,
                          password_hash=hashed_password)
@@ -149,6 +177,7 @@ def add_user():
             db.session.commit()
         name = form.name.data
         form.name.data = ''
+        form.username.data = ''
         form.email.data = ''
         form.favorite_color.data = ''
         form.password_hash.data = ''
@@ -167,6 +196,7 @@ def post(id):
 
 
 @app.route('/add_post', methods=['POST', 'GET'])
+@login_required
 def add_post():
     form = PostForm()
     if form.validate_on_submit():
@@ -183,6 +213,7 @@ def add_post():
 
 
 @app.route('/edit_post/<int:id>', methods=['POST', 'GET'])
+@login_required
 def edit_post(id):
     form = PostForm()
     editing_post = Posts.query.get_or_404(id)
@@ -200,34 +231,35 @@ def edit_post(id):
                            form=form, editing_post=editing_post)
 
 
-@app.route('/update_record/<int:id>', methods=['POST', 'GET'])
-def update_record(id):
+@app.route('/update_user/<int:id>', methods=['POST', 'GET'])
+def update_user(id):
     form = UserForm()
     name_to_update = Users.query.get_or_404(id)
     if request.method == 'POST':
         name_to_update.name = request.form['name']
         name_to_update.email = request.form['email']
         name_to_update.favorite_color = request.form['favorite_color']
+        name_to_update.username = request.form['username']
         try:
             db.session.commit()
             flash('User Updated Successfully!')
-            return render_template('update_record.html',
+            return render_template('update_user.html',
                                    form=form,
                                    name_to_update=name_to_update,)
         except:
             flash('Error Updating!')
-            return render_template('update_record.html',
+            return render_template('update_user.html',
                                    form=form,
                                    name_to_update=name_to_update, )
 
     else:
-        return render_template('update_record.html',
+        return render_template('update_user.html',
                                form=form,
                                name_to_update=name_to_update,)
 
 
-@app.route('/delete_record/<int:id>')
-def delete_record(id):
+@app.route('/delete_user/<int:id>')
+def delete_user(id):
     user_to_delete = Users.query.get_or_404(id)
     try:
         db.session.delete(user_to_delete)
@@ -263,6 +295,66 @@ def delete_post(id):
     except:
         flash('Delete error')
         return redirect(url_for('blog_posts'))
+
+
+@app.route('/login', methods=['POST', 'GET'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = Users.query.filter_by(username=form.username.data).first()
+        if user:
+            if check_password_hash(user.password_hash, form.password_hash.data):
+                login_user(user)
+                flash('login success!')
+                return redirect(url_for('dashboard'))
+            else:
+                flash('wrong password')
+        else:
+            flash('User not exist')
+
+    return render_template('login.html', form=form)
+
+
+@app.route('/logout', methods=['POST', 'GET'])
+@login_required
+def logout():
+    logout_user()
+    flash('you logout')
+    return redirect(url_for('index'))
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return Users.query.get(int(user_id))
+
+
+@app.route('/dashboard', methods=['POST', 'GET'])
+@login_required
+def dashboard():
+    form = UserForm()
+    id = current_user.id
+    name_to_update = Users.query.get_or_404(id)
+    if request.method == 'POST':
+        name_to_update.name = request.form['name']
+        name_to_update.email = request.form['email']
+        name_to_update.favorite_color = request.form['favorite_color']
+        name_to_update.username = request.form['username']
+        try:
+            db.session.commit()
+            flash('User Updated Successfully!')
+            return render_template('dashboard.html',
+                                   form=form,
+                                   name_to_update=name_to_update, )
+        except:
+            flash('Error Updating!')
+            return render_template('dashboard.html',
+                                   form=form,
+                                   name_to_update=name_to_update, )
+
+    else:
+        return render_template('dashboard.html',
+                               form=form,
+                               name_to_update=name_to_update, )
 
 
 if __name__ == '__main__':
