@@ -1,5 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField
+from flask_ckeditor import CKEditorField
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, EqualTo
 
 
@@ -12,6 +13,8 @@ class UserForm(FlaskForm):
                                               EqualTo('password_hash2', message='Password Must Match')])
     password_hash2 = PasswordField('Confirm Password', validators=[DataRequired()])
     favorite_color = StringField("Favorite Color")
+    about_author = TextAreaField("About Author")
+    # about_author = StringField("About Author")
     submit = SubmitField("Submit")
 
 
@@ -28,7 +31,8 @@ class PasswordForm(FlaskForm):
 
 class PostForm(FlaskForm):
     title = StringField("title", validators=[DataRequired()])
-    content = StringField("content", validators=[DataRequired()])
+    # content = StringField("content", validators=[DataRequired()])
+    content = CKEditorField("content", validators=[DataRequired()])
     # author = StringField("author", validators=[DataRequired()])
     slug = StringField("slug", validators=[DataRequired()])
     submit = SubmitField("Submit")
@@ -38,3 +42,8 @@ class LoginForm(FlaskForm):
     username = StringField("username", validators=[DataRequired()])
     password_hash = PasswordField("password", validators=[DataRequired()])
     submit = SubmitField("Login")
+
+
+class SearchForm(FlaskForm):
+    searched = StringField("Searched", validators=[DataRequired()])
+    submit = SubmitField("Search")

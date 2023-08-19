@@ -1,15 +1,18 @@
 from flask import Flask, render_template, flash, request, redirect, url_for
+from flask_ckeditor import CKEditor
 from sqlalchemy import MetaData
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from datetime import datetime
 from datetime import date
+
+# from sqlalchemy.testing.plugin.plugin_base import post
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
-from webforms import NamerForm, PasswordForm, UserForm, PostForm, LoginForm
-
+from webforms import NamerForm, PasswordForm, UserForm, PostForm, LoginForm, SearchForm
 
 app = Flask(__name__)
+ckeditor = CKEditor(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
 app.config['SECRET_KEY'] = "my super secret key that no one is supposed to know"
 
@@ -40,6 +43,17 @@ login_manager.login_view = 'login'
 @app.route('/date')
 def get_current_date():
     return {'Date': date.today()}
+
+
+@app.route('/admin')
+@login_required
+def admin():
+    if current_user.id == 3:
+        flash('Wellcome admin')
+        return render_template('admin.html')
+    else:
+        flash('Sorry yoy are not admin')
+        return render_template(url_for('index'))
 
 
 @app.route('/')
@@ -128,28 +142,29 @@ def add_user():
 def update_user(id):
     form = UserForm()
     name_to_update = Users.query.get_or_404(id)
-    if request.method == 'POST':
+    if request.method == "POST":
         name_to_update.name = request.form['name']
         name_to_update.email = request.form['email']
         name_to_update.favorite_color = request.form['favorite_color']
         name_to_update.username = request.form['username']
+        name_to_update.about_author = request.form['about_author']
         try:
             db.session.commit()
-            flash('User Updated Successfully!')
-            return render_template('update_user.html',
+            flash("User Updated Successfully!")
+            return render_template("update_user.html",
                                    form=form,
-                                   name_to_update=name_to_update,)
+                                   name_to_update=name_to_update, id=id)
         except:
-            flash('Error Updating!')
-            return render_template('update_user.html',
+            flash("Error!  Looks like there was a problem...try again!")
+            return render_template("update_user.html",
                                    form=form,
-                                   name_to_update=name_to_update, )
-
+                                   name_to_update=name_to_update,
+                                   id=id)
     else:
-        return render_template('update_user.html',
-                               id=id,
+        return render_template("update_user.html",
                                form=form,
-                               name_to_update=name_to_update,)
+                               name_to_update=name_to_update,
+                               id=id)
 
 
 @app.route('/delete_user/<int:id>')
@@ -215,39 +230,66 @@ def add_post():
         db.session.add(post)
         db.session.commit()
         flash('OK')
-        return redirect('/')
+        return redirect(url_for('blog_posts'))
 
     return render_template('add_post.html', form=form,)
 
 
-@app.route('/edit_post/<int:id>', methods=['POST', 'GET'])
+# @app.route('/edit_post/<int:id>', methods=['POST', 'GET'])
+# @login_required
+# def edit_post(id):
+#     editing_post = Posts.query.get_or_404(id)
+#     form = PostForm()
+#     if current_user.id == editing_post.poster.id:
+#
+#         if form.validate_on_submit():
+#             editing_post.title = form.title.data
+#             editing_post.slug = form.slug.data
+#             editing_post.content = form.content.data
+#
+#             db.session.add(editing_post)
+#             db.session.commit()
+#             flash('ok')
+#             return redirect(url_for('post', id=editing_post.id))
+#
+#         return render_template('edit_post.html',
+#                                form=form, editing_post=editing_post)
+#     else:
+#         flash('Permission Denied')
+#         return redirect(url_for('blog_posts'))
+
+
+@app.route('/posts/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit_post(id):
-    editing_post = Posts.query.get_or_404(id)
-    if current_user.id == editing_post.poster.id:
-        form = PostForm()
-
-        if form.validate_on_submit():
-            editing_post.title = form.title.data
-            # editing_post.author = form.author.data
-            editing_post.slug = form.slug.data
-            editing_post.content = form.content.data
-
-            db.session.commit()
-            flash('ok')
-            return redirect(url_for('post', id=editing_post.id))
-
-        return render_template('edit_post.html',
-                               form=form, editing_post=editing_post)
-    else:
-        flash('Permission Denied')
+    post = Posts.query.get_or_404(id)
+    form = PostForm()
+    if form.validate_on_submit():
+        post.title = form.title.data
+        # post.author = form.author.data
+        post.slug = form.slug.data
+        post.content = form.content.data
+        # Update Database
+        db.session.add(post)
+        db.session.commit()
+        flash("Post Has Been Updated!")
         return redirect(url_for('blog_posts'))
 
+    if current_user.id == post.poster_id or current_user.id == 14:
+        form.title.data = post.title
+        # form.author.data = post.author
+        form.slug.data = post.slug
+        form.content.data = post.content
+        return render_template('edit_post.html', form=form)
+    else:
+        flash("You Aren't Authorized To Edit This Post...")
+        posts = Posts.query.order_by(Posts.date_posted)
+        return render_template("blog_posts.html", posts=posts)
 
 
 @app.route('/blog_posts')
 def blog_posts():
-    posts = Posts.query.all()
+    posts = Posts.query.order_by(Posts.date_posted.desc()).all()
     return render_template('blog_posts.html', posts=posts)
 
 
@@ -280,6 +322,7 @@ def dashboard():
         name_to_update.name = request.form['name']
         name_to_update.email = request.form['email']
         name_to_update.favorite_color = request.form['favorite_color']
+        name_to_update.about_author = request.form['about_author']
         name_to_update.username = request.form['username']
         try:
             db.session.commit()
@@ -296,8 +339,30 @@ def dashboard():
     else:
         return render_template('dashboard.html',
                                form=form,
-
                                name_to_update=name_to_update, )
+
+
+@app.context_processor
+def base():
+    form = SearchForm()
+    return dict(form=form)
+
+
+@app.route('/search', methods=['POST'])
+def search():
+    form = SearchForm()
+    posts = Posts.query
+    if form.validate_on_submit():
+        post_searched = form.searched.data
+        posts = posts.filter(Posts.title.like('%' + post_searched + '%'))
+        posts = posts.order_by(Posts.title).all()
+        return render_template('search.html',
+                               form=form,
+                               searched=post_searched,
+                               posts=posts)
+    else:
+        flash('Error Validation!')
+        return render_template('search.html')
 
 
 # MODELS
@@ -308,6 +373,8 @@ class Users(db.Model, UserMixin):
     password_hash = db.Column(db.String(128))
     email = db.Column(db.String(200), nullable=False, unique=True)
     favorite_color = db.Column(db.String(120), default='Red')
+    # about_author = db.Column(db.String(500), nullable=True)
+    about_author = db.Column(db.Text(500), nullable=True)
     created = db.Column(db.DateTime, default=datetime.utcnow)
     posts = db.relationship('Posts', backref='poster')
 

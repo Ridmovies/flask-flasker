@@ -17,20 +17,20 @@
         <form method="post">
             {{ form.hidden_tag() }}
             {{ form.title.label(class="form-label") }}
-            {{ form.title(class="form-control", value=editing_post.title) }}
+            {{ form.title(class="form-control") }}
 
             {{ form.content.label(class="form-label") }}
-            {{ form.content(class="form-control", rows='5', value=editing_post.content) }}
-
-{#            {{ form.author.label(class="form-label")}}#}
-{#            {{ form.author(class="form-control", value=editing_post.author) }}#}
+            {{ form.content(class="form-control", rows='5') }}
 
             {{ form.slug.label(class="form-label")}}
-            {{ form.slug(class="form-control", value=editing_post.slug) }}
+            {{ form.slug(class="form-control") }}
 
             <br/>
             {{ form.submit(class="btn btn-primary") }}
         </form>
+        {{ ckeditor.load() }}
+        {{ ckeditor.config(name='content') }}
+
         </div>
 
 
