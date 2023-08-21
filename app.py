@@ -1,3 +1,6 @@
+import os
+import uuid
+
 from flask import Flask, render_template, flash, request, redirect, url_for
 from flask_ckeditor import CKEditor
 from sqlalchemy import MetaData
@@ -9,6 +12,8 @@ from datetime import date
 # from sqlalchemy.testing.plugin.plugin_base import post
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
+from werkzeug.utils import secure_filename
+
 from webforms import NamerForm, PasswordForm, UserForm, PostForm, LoginForm, SearchForm
 
 app = Flask(__name__)
@@ -31,6 +36,9 @@ convention = {
 metadata = MetaData(naming_convention=convention)
 db = SQLAlchemy(app, metadata=metadata)
 migrate = Migrate(app, db, render_as_batch=True)
+
+UPLOAD_FOLDER = 'static/images'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
 # Flask_Login Stuff
@@ -168,17 +176,21 @@ def update_user(id):
 
 
 @app.route('/delete_user/<int:id>')
+@login_required
 def delete_user(id):
-    user_to_delete = Users.query.get_or_404(id)
-    try:
-        db.session.delete(user_to_delete)
-        db.session.commit()
-        flash('User Deleted!')
-        return redirect(url_for('add_user'))
-    except:
-        flash('Deleting Error')
-        return redirect(url_for('add_user'))
-
+    if id == current_user.id:
+        user_to_delete = Users.query.get_or_404(id)
+        try:
+            db.session.delete(user_to_delete)
+            db.session.commit()
+            flash('User Deleted!')
+            return redirect(url_for('add_user'))
+        except:
+            flash('Deleting Error')
+            return redirect(url_for('add_user'))
+    else:
+        flash('permission denied')
+        return redirect(url_for('index'))
 
 @app.route('/login', methods=['POST', 'GET'])
 def login():
@@ -324,14 +336,30 @@ def dashboard():
         name_to_update.favorite_color = request.form['favorite_color']
         name_to_update.about_author = request.form['about_author']
         name_to_update.username = request.form['username']
-        try:
+
+        if request.files['profile_pic']:
+            name_to_update.profile_pic = request.files['profile_pic']
+
+            pic_filename = secure_filename(name_to_update.profile_pic.filename)
+            pic_name = str(uuid.uuid1()) + '_' + pic_filename
+
+            saver = request.files['profile_pic']
+            name_to_update.profile_pic = pic_name
+            try:
+                db.session.commit()
+                saver.save(os.path.join(app.config['UPLOAD_FOLDER'], pic_name))
+                flash('User Updated Successfully!')
+                return render_template('dashboard.html',
+                                       form=form,
+                                       name_to_update=name_to_update, )
+            except:
+                flash('Error Updating!')
+                return render_template('dashboard.html',
+                                       form=form,
+                                       name_to_update=name_to_update, )
+        else:
             db.session.commit()
             flash('User Updated Successfully!')
-            return render_template('dashboard.html',
-                                   form=form,
-                                   name_to_update=name_to_update, )
-        except:
-            flash('Error Updating!')
             return render_template('dashboard.html',
                                    form=form,
                                    name_to_update=name_to_update, )
@@ -376,6 +404,7 @@ class Users(db.Model, UserMixin):
     # about_author = db.Column(db.String(500), nullable=True)
     about_author = db.Column(db.Text(500), nullable=True)
     created = db.Column(db.DateTime, default=datetime.utcnow)
+    profile_pic = db.Column(db.String(), nullable=True)
     posts = db.relationship('Posts', backref='poster')
 
 

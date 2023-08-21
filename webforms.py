@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from flask_ckeditor import CKEditorField
-from wtforms import StringField, PasswordField, SubmitField, TextAreaField
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField, FileField
 from wtforms.validators import DataRequired, EqualTo
 
 
@@ -15,6 +15,7 @@ class UserForm(FlaskForm):
     favorite_color = StringField("Favorite Color")
     about_author = TextAreaField("About Author")
     # about_author = StringField("About Author")
+    profile_pic = FileField('Avatar')
     submit = SubmitField("Submit")
 
 
