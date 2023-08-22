@@ -3,13 +3,12 @@ import uuid
 
 from flask import Flask, render_template, flash, request, redirect, url_for
 from flask_ckeditor import CKEditor
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, or_
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from datetime import datetime
 from datetime import date
 
-# from sqlalchemy.testing.plugin.plugin_base import post
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
 from werkzeug.utils import secure_filename
@@ -110,6 +109,13 @@ def test_pw():
                            pw_to_check=pw_to_check,)
 
 
+@app.route('/users_list')
+def users_list():
+    users = Users.query.all()
+    return render_template('users_list.html',
+                           users=users,)
+
+
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
@@ -192,6 +198,7 @@ def delete_user(id):
         flash('permission denied')
         return redirect(url_for('index'))
 
+
 @app.route('/login', methods=['POST', 'GET'])
 def login():
     form = LoginForm()
@@ -245,30 +252,6 @@ def add_post():
         return redirect(url_for('blog_posts'))
 
     return render_template('add_post.html', form=form,)
-
-
-# @app.route('/edit_post/<int:id>', methods=['POST', 'GET'])
-# @login_required
-# def edit_post(id):
-#     editing_post = Posts.query.get_or_404(id)
-#     form = PostForm()
-#     if current_user.id == editing_post.poster.id:
-#
-#         if form.validate_on_submit():
-#             editing_post.title = form.title.data
-#             editing_post.slug = form.slug.data
-#             editing_post.content = form.content.data
-#
-#             db.session.add(editing_post)
-#             db.session.commit()
-#             flash('ok')
-#             return redirect(url_for('post', id=editing_post.id))
-#
-#         return render_template('edit_post.html',
-#                                form=form, editing_post=editing_post)
-#     else:
-#         flash('Permission Denied')
-#         return redirect(url_for('blog_posts'))
 
 
 @app.route('/posts/edit/<int:id>', methods=['GET', 'POST'])
@@ -382,8 +365,8 @@ def search():
     posts = Posts.query
     if form.validate_on_submit():
         post_searched = form.searched.data
-        posts = posts.filter(Posts.title.like('%' + post_searched + '%'))
-        posts = posts.order_by(Posts.title).all()
+        posts = posts.filter(or_(Posts.content.like('%' + post_searched + '%'),
+                                 Posts.title.like('%' + post_searched + '%')))
         return render_template('search.html',
                                form=form,
                                searched=post_searched,
